@@ -54,7 +54,7 @@ public class StepCounter implements SensorEventListener {
                 Math.pow(event.values[1], 2) +
                 Math.pow(event.values[2], 2)
         );
-        _bufferRaw.add(event.timestamp, magnitude);
+        _bufferRaw.add(magnitude);
 
         // Update median filtered data
         if (_bufferRaw.size() >= (FILTER_NEIGHBORS*2+1)) {
@@ -63,7 +63,7 @@ public class StepCounter implements SensorEventListener {
                 values[i] = _bufferRaw.getValue(i);
             }
             Arrays.sort(values);
-            _bufferMedian.add(event.timestamp, values[FILTER_NEIGHBORS]);
+            _bufferMedian.add(values[FILTER_NEIGHBORS]);
         }
 
         // De-mean data (using all median data, which will change over time as the buffer circles around)
