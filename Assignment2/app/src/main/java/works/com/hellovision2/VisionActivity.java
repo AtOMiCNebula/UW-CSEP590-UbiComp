@@ -13,7 +13,6 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 
@@ -105,17 +104,15 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
     public void onCameraViewStarted(int width, int height) {
 
     }
-//
+
     @Override
     public void onCameraViewStopped() {
 
     }
-//
+
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Mat currentFrame = inputFrame.rgba();
-//        Core.mean(currentFrame); -> returns x,y,z,a
-        Mat gryFrame = new Mat();
         Imgproc.cvtColor(currentFrame, currentFrame, Imgproc.COLOR_RGBA2GRAY);
 
         Imgproc.Canny(currentFrame,currentFrame,cannyThreshold/3,cannyThreshold );
@@ -124,9 +121,9 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-//        // MotionEvent reports input details from the touch screen
-//        // and other input controls. In this case, you are only
-//        // interested in events where the touch position changed.
+        // MotionEvent reports input details from the touch screen
+        // and other input controls. In this case, you are only
+        // interested in events where the touch position changed.
         float y = e.getY();
         if (e.getAction() == MotionEvent.ACTION_MOVE) {
             if (lastTouchY > y)
@@ -136,7 +133,7 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
 
             lastTouchY = y;
         }
-//
+
         if (e.getAction() == MotionEvent.ACTION_UP)
             lastTouchY = 0;
         return true;
