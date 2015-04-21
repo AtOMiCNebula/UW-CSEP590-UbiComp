@@ -9,12 +9,31 @@
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context=".VisionActivity">
 
-    <org.opencv.android.JavaCameraView
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Large Text"
+        android:id="@+id/textView"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <RelativeLayout
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        android:visibility="gone"
-        android:id="@+id/HelloOpenCvView"
-        opencv:show_fps="true"
-        opencv:camera_id="back" />
+        android:layout_below="@+id/textView"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true">
+
+        <org.opencv.android.JavaCameraView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:visibility="gone"
+            android:id="@+id/HelloOpenCvView"
+            opencv:show_fps="true"
+            opencv:camera_id="back" />
+
+    </RelativeLayout>
 
 </RelativeLayout>

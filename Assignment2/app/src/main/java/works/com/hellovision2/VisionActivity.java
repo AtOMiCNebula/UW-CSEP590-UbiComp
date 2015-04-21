@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 
@@ -13,16 +12,16 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
-import org.opencv.imgproc.Imgproc;
 
 
 public class VisionActivity extends ActionBarActivity implements CameraBridgeViewBase.CvCameraViewListener2{
 
     String TAG = "APP";
     CameraBridgeViewBase mOpenCvCameraView;
-    float lastTouchY=0;
-    int cannyThreshold=50;
+
+    CircularBuffer buffer = null;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -53,6 +52,9 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
 
+        if (buffer == null) {
+            buffer = new CircularBuffer(200);
+        }
     }
 
 
@@ -102,42 +104,16 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-
     }
 
     @Override
     public void onCameraViewStopped() {
-
     }
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Mat currentFrame = inputFrame.rgba();
-        Imgproc.cvtColor(currentFrame, currentFrame, Imgproc.COLOR_RGBA2GRAY);
-
-        Imgproc.Canny(currentFrame,currentFrame,cannyThreshold/3,cannyThreshold );
+        buffer.add(Core.mean(currentFrame).val[0]);
         return currentFrame;
     }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent e) {
-        // MotionEvent reports input details from the touch screen
-        // and other input controls. In this case, you are only
-        // interested in events where the touch position changed.
-        float y = e.getY();
-        if (e.getAction() == MotionEvent.ACTION_MOVE) {
-            if (lastTouchY > y)
-                cannyThreshold += 5;
-            else
-                cannyThreshold -= 5;
-
-            lastTouchY = y;
-        }
-
-        if (e.getAction() == MotionEvent.ACTION_UP)
-            lastTouchY = 0;
-        return true;
-    }
-
-
 }
