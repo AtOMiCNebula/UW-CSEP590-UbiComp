@@ -1,5 +1,7 @@
 package works.com.hellovision2;
 
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -7,6 +9,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+import android.widget.TextView;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
@@ -21,7 +24,8 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
     String TAG = "APP";
     CameraBridgeViewBase mOpenCvCameraView;
 
-    CircularBuffer buffer = null;
+    private HeartRateMonitor _monitor = null;
+    private FFTHandler _handler = null;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -52,8 +56,11 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
 
-        if (buffer == null) {
-            buffer = new CircularBuffer(200);
+        if (_monitor == null) {
+            _monitor = new HeartRateMonitor();
+            _handler = new FFTHandler(this);
+
+            _handler.sendEmptyMessageDelayed(0, 1000);
         }
     }
 
@@ -113,7 +120,28 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Mat currentFrame = inputFrame.rgba();
-        buffer.add(Core.mean(currentFrame).val[0]);
+        _monitor.newCameraAverage((float) Core.mean(currentFrame).val[0]);
         return currentFrame;
+    }
+
+    public void updateRate() {
+        double r = _monitor.getRate();
+        TextView view = (TextView)findViewById(R.id.textView);
+        view.setText("Heart rate: " + Double.toString(r) + ", " + System.currentTimeMillis());
+
+        _handler.sendEmptyMessageDelayed(0, 1000);
+    }
+
+    private class FFTHandler extends Handler {
+        private VisionActivity _activity = null;
+
+        public FFTHandler(VisionActivity activity) {
+            _activity = activity;
+        }
+
+        @Override
+        public void handleMessage(Message message) {
+            _activity.updateRate();
+        }
     }
 }
