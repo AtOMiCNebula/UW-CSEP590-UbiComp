@@ -17,15 +17,12 @@ public class HeartRateMonitor {
     public double getRate() {
         double result = -1;
         if (_buffer.size() == 128) {
-            // Prepare data for our FFT
-            float[] fftData = new float[128];
-            for (int i = 0; i < _buffer.size(); i++) {
-                fftData[_buffer.size()-i-1] = _buffer.getValue(i);
+            // Create the FFT, and give it the data
+            FFT fft = new FFT(128, _buffer.sampleRate());
+            float[] fftData = new float[fft.timeSize()];
+            for (int i = 0; i < fftData.length; i++) {
+                fftData[fftData.length-i-1] = _buffer.getValue(i);
             }
-            float fftRate = (1000 * _buffer.size()) / (_buffer.getTime(0) - _buffer.getTime(_buffer.size()-1));
-
-            // Create the FFT, and give it the data we prepared!
-            FFT fft = new FFT(128, fftRate);
             fft.forward(fftData);
 
             // Grab real/imaginary components

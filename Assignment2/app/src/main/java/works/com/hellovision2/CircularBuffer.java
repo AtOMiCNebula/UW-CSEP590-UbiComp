@@ -36,10 +36,14 @@ public class CircularBuffer {
         }
     }
 
-    public long getTime(int i) {
+    private long getTime(int i) {
         synchronized (_arrValues) {
             int idx = (_arrTimes.length + _nextWrite - 1 - i) % _arrTimes.length;
             return _arrTimes[idx];
         }
+    }
+
+    public float sampleRate() {
+        return (1000.f * size()) / (getTime(0) - getTime(size()-1));
     }
 }
