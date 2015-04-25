@@ -21,6 +21,7 @@ public class HeartRateMonitor {
     private XYPlot _plot;
     private SimpleXYSeries _seriesZC;
     private SimpleXYSeries _seriesZCMean;
+    private SimpleXYSeries _seriesFFT;
 
     public HeartRateMonitor(XYPlot plot) {
         _bufferRaw = new CircularBuffer(128);
@@ -35,6 +36,9 @@ public class HeartRateMonitor {
             else if ("ZC Mean".equals(series.getTitle())) {
                 _seriesZCMean = (SimpleXYSeries)series;
             }
+            else if ("FFT".equals(series.getTitle())) {
+                _seriesFFT = (SimpleXYSeries)series;
+            }
         }
         if (_seriesZC == null) {
             _seriesZC = new SimpleXYSeries("Zero Crossings");
@@ -44,6 +48,10 @@ public class HeartRateMonitor {
         if (_seriesZCMean == null) {
             _seriesZCMean = new SimpleXYSeries("ZC Mean");
             _plot.addSeries(_seriesZCMean, new LineAndPointFormatter(Color.BLACK, Color.BLACK, null, null));
+        }
+        if (_seriesFFT == null) {
+            _seriesFFT = new SimpleXYSeries("FFT");
+            //_plot.addSeries(_seriesFFT, new BarFormatter(Color.GREEN, Color.BLACK));
         }
     }
 
@@ -120,6 +128,14 @@ public class HeartRateMonitor {
             int idxMin = fft.freqToIndex(.5f); // .5hz (30bpm) should be a safe lower-bound
             int idxMax = fft.freqToIndex(3.f); // 3hz (180bpm) should be a safe upper-bound
 
+            // Prep the graph, if we've not done it yet
+            if (_seriesFFT.size() == 0) {
+                float indices = (idxMax - idxMin + 1);
+                for (int i = 0; i < indices; i++) {
+                    _seriesFFT.addLast(127.f * (i / indices), null);
+                }
+            }
+
             // Process components within above ranges to find the most likely bpm!
             int fftMagMaxIdx = -1;
             double fftMagMax = 0;
@@ -129,6 +145,7 @@ public class HeartRateMonitor {
                     fftMagMaxIdx = i;
                     fftMagMax = fftMag;
                 }
+                _seriesFFT.setY(fftMag, i-idxMin);
             }
             fftVal = fft.indexToFreq(fftMagMaxIdx) * 60.f;
         }
