@@ -43,7 +43,11 @@ public class CircularBuffer {
         }
     }
 
+    public float timeSpan() {
+        return (getTime(0) - getTime(size()-1));
+    }
+
     public float sampleRate() {
-        return (1000.f * size()) / (getTime(0) - getTime(size()-1));
+        return (1000.f * size()) / timeSpan();
     }
 }

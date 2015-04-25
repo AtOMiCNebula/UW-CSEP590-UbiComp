@@ -5,10 +5,13 @@ import android.os.Message;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.TextView;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -26,6 +29,7 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
 
     private HeartRateMonitor _monitor = null;
     private FFTHandler _handler = null;
+    private boolean _recording = false;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -59,9 +63,17 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
         if (_monitor == null) {
             _monitor = new HeartRateMonitor();
             _handler = new FFTHandler(this);
-
-            _handler.sendEmptyMessageDelayed(0, 1000);
         }
+
+        final Button button = (Button)findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                _recording = true;
+                button.setVisibility(View.INVISIBLE);
+                _handler.sendEmptyMessage(0);
+            }
+        });
     }
 
 
@@ -120,14 +132,25 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Mat currentFrame = inputFrame.rgba();
-        _monitor.newCameraAverage((float) Core.mean(currentFrame).val[0]);
+        if (_recording) {
+            _monitor.newCameraAverage((float) Core.mean(currentFrame).val[0]);
+        }
         return currentFrame;
     }
 
     public void updateRate() {
-        double r = _monitor.getRate();
+        Pair<Double, Double> r = _monitor.getRate();
         TextView view = (TextView)findViewById(R.id.textView);
-        view.setText("Heart rate: " + Double.toString(r) + ", " + System.currentTimeMillis());
+
+        String zcVal = "...";
+        String fftVal = "...";
+        if (r.first > 0) {
+            zcVal = Integer.toString((int)Math.round(r.first));
+        }
+        if (r.second > 0) {
+            fftVal = Integer.toString((int)Math.round(r.second));
+        }
+        view.setText("ZC: " + zcVal + "\nFFT: " + fftVal);
 
         _handler.sendEmptyMessageDelayed(0, 1000);
     }
