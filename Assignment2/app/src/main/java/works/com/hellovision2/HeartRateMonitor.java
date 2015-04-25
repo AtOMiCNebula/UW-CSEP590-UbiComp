@@ -19,8 +19,8 @@ public class HeartRateMonitor {
     private CircularBuffer _bufferRaw;
     private CircularBuffer _bufferFiltered;
     private XYPlot _plot;
-    private SimpleXYSeries _seriesZC;
-    private SimpleXYSeries _seriesZCMean;
+    private SimpleXYSeries _seriesFiltered;
+    private SimpleXYSeries _seriesPeaks;
     private SimpleXYSeries _seriesFFT;
 
     public HeartRateMonitor(XYPlot plot) {
@@ -30,24 +30,25 @@ public class HeartRateMonitor {
 
         // Configure our plot accordingly
         for (XYSeries series : _plot.getSeriesSet()) {
-            if ("Zero Crossings".equals(series.getTitle())) {
-                _seriesZC = (SimpleXYSeries)series;
+            if ("Camera Data".equals(series.getTitle())) {
+                _seriesFiltered = (SimpleXYSeries)series;
             }
-            else if ("ZC Mean".equals(series.getTitle())) {
-                _seriesZCMean = (SimpleXYSeries)series;
+            else if ("Peaks".equals(series.getTitle())) {
+                _seriesPeaks = (SimpleXYSeries)series;
             }
             else if ("FFT".equals(series.getTitle())) {
                 _seriesFFT = (SimpleXYSeries)series;
             }
         }
-        if (_seriesZC == null) {
-            _seriesZC = new SimpleXYSeries("Zero Crossings");
-            _seriesZC.useImplicitXVals();
-            _plot.addSeries(_seriesZC, new LineAndPointFormatter(Color.BLUE, Color.BLACK, null, null));
+        if (_seriesFiltered == null) {
+            _seriesFiltered = new SimpleXYSeries("Camera Data");
+            _seriesFiltered.useImplicitXVals();
+            _plot.addSeries(_seriesFiltered, new LineAndPointFormatter(Color.BLACK, Color.BLUE, null, null));
         }
-        if (_seriesZCMean == null) {
-            _seriesZCMean = new SimpleXYSeries("ZC Mean");
-            _plot.addSeries(_seriesZCMean, new LineAndPointFormatter(Color.BLACK, Color.BLACK, null, null));
+        if (_seriesPeaks == null) {
+            _seriesPeaks = new SimpleXYSeries("Peaks");
+            _seriesPeaks.useImplicitXVals();
+            _plot.addSeries(_seriesPeaks, new LineAndPointFormatter(null, Color.YELLOW, null, null));
         }
         if (_seriesFFT == null) {
             _seriesFFT = new SimpleXYSeries("FFT");
@@ -66,47 +67,37 @@ public class HeartRateMonitor {
             Arrays.sort(values);
             _bufferFiltered.add(values[FILTER_NEIGHBORS]);
 
-            // Update Series-ZC
-            if (_bufferFiltered.size() == _seriesZC.size()) {
-                _seriesZC.removeFirst();
+            // Update graph data
+            if (_bufferFiltered.size() == _seriesFiltered.size()) {
+                _seriesFiltered.removeFirst();
+                _seriesPeaks.removeFirst();
             }
-            _seriesZC.addLast(null, values[FILTER_NEIGHBORS]);
+            _seriesFiltered.addLast(null, values[FILTER_NEIGHBORS]);
+            _seriesPeaks.addLast(null, null);
+            if (_bufferFiltered.size() > 1 &&
+                    (_bufferFiltered.getValue(0) < _bufferFiltered.getValue(1) &&
+                    !(_bufferFiltered.getValue(1) < _bufferFiltered.getValue(2)))) {
+                // We found a peak!  Record it.
+                _seriesPeaks.setY(_bufferFiltered.getValue(1), _seriesPeaks.size()-2);
+            }
             _plot.redraw();
         }
     }
 
     public Pair<Double, Double> getRate() {
-        // Prepare zero-crossings result
-        double zcVal = -1;
+        // Prepare peaks result
+        double peaksVal = -1;
         if (_bufferFiltered.size() > 100) {
-            // De-mean data (using all median data, which will change over time as the buffer circles around)
-            double mean = 0.0f;
-            for (int i = 0; i < _bufferFiltered.size(); i++) {
-                mean += _bufferFiltered.getValue(i);
-            }
-            mean /= _bufferFiltered.size();
-            if (_seriesZCMean.size() != 2) {
-                _seriesZCMean.addFirst(0, mean);
-                _seriesZCMean.addFirst(127, mean);
-            }
-            else {
-                _seriesZCMean.setXY(0, mean, 0);
-                _seriesZCMean.setXY(127, mean, 1);
-            }
-
-            // Count up zero-crossings
-            int crossings = 0;
-            double checkPrevious = _bufferFiltered.getValue(0) - mean;
-            for (int i = 1; i < _bufferFiltered.size(); i++) {
-                double checkCurrent = _bufferFiltered.getValue(i) - mean;
-                if (checkPrevious < 0 && checkCurrent > 0) {
-                    crossings++;
+            // Count up peaks in our series data
+            int peaks = 0;
+            for (int i = 0; i < _seriesPeaks.size(); i++) {
+                if (_seriesPeaks.getY(i) != null) {
+                    peaks++;
                 }
-                checkPrevious = checkCurrent;
             }
 
             // Adjust the crossing count by our shortened time span to get BPM
-            zcVal = (crossings * (60000 / _bufferFiltered.timeSpan()));
+            peaksVal = (peaks * (60000 / _bufferFiltered.timeSpan()));
         }
 
         // Prepare FFT result
@@ -129,8 +120,11 @@ public class HeartRateMonitor {
             int idxMax = fft.freqToIndex(3.f); // 3hz (180bpm) should be a safe upper-bound
 
             // Prep the graph, if we've not done it yet
-            if (_seriesFFT.size() == 0) {
-                float indices = (idxMax - idxMin + 1);
+            float indices = (idxMax - idxMin + 2);
+            if (_seriesFFT.size() != indices) {
+                while (_seriesFFT.size() > 0) {
+                    _seriesFFT.removeFirst();
+                }
                 for (int i = 0; i < indices; i++) {
                     _seriesFFT.addLast(127.f * (i / indices), null);
                 }
@@ -150,6 +144,6 @@ public class HeartRateMonitor {
             fftVal = fft.indexToFreq(fftMagMaxIdx) * 60.f;
         }
 
-        return Pair.create(zcVal, fftVal);
+        return Pair.create(peaksVal, fftVal);
     }
 }

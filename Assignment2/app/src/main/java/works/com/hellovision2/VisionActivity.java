@@ -145,15 +145,15 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
         Pair<Double, Double> r = _monitor.getRate();
         TextView view = (TextView)findViewById(R.id.textView);
 
-        String zcVal = "...";
+        String peaksVal = "...";
         String fftVal = "...";
         if (r.first > 0) {
-            zcVal = Integer.toString((int)Math.round(r.first));
+            peaksVal = Integer.toString((int)Math.round(r.first));
         }
         if (r.second > 0) {
             fftVal = Integer.toString((int)Math.round(r.second));
         }
-        view.setText("ZC: " + zcVal + "\nFFT: " + fftVal);
+        view.setText("PK: " + peaksVal + "\nFFT: " + fftVal);
 
         _handler.sendEmptyMessageDelayed(0, 1000);
     }

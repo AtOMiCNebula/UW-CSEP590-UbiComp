@@ -24,7 +24,7 @@
             android:layout_height="300dp"
             android:layout_margin="10dp"
 
-            android:text="ZC: 000\nFFT: 000"
+            android:text="PK: 000\nFFT: 000"
             android:textSize="75dp"
             android:gravity="center_horizontal|center_vertical" />
 
