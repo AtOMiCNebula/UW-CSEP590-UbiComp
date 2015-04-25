@@ -28,6 +28,10 @@ public class CircularBuffer {
         }
     }
 
+    public int capacity() {
+        return _arrValues.length;
+    }
+
     // Expose a most-recent-first view (_arr[0] is most fresh, _arr[_arr.size()-1] is most stale)
     public float getValue(int i) {
         synchronized (_arrValues) {

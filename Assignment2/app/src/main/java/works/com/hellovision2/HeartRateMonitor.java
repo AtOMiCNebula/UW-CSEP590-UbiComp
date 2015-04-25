@@ -1,7 +1,13 @@
 package works.com.hellovision2;
 
+import android.graphics.Color;
 import android.util.Pair;
 
+import com.androidplot.xy.BarFormatter;
+import com.androidplot.xy.LineAndPointFormatter;
+import com.androidplot.xy.SimpleXYSeries;
+import com.androidplot.xy.XYPlot;
+import com.androidplot.xy.XYSeries;
 import com.badlogic.gdx.audio.analysis.FFT;
 
 import java.util.Arrays;
@@ -12,10 +18,33 @@ public class HeartRateMonitor {
 
     private CircularBuffer _bufferRaw;
     private CircularBuffer _bufferFiltered;
+    private XYPlot _plot;
+    private SimpleXYSeries _seriesZC;
+    private SimpleXYSeries _seriesZCMean;
 
-    public HeartRateMonitor() {
+    public HeartRateMonitor(XYPlot plot) {
         _bufferRaw = new CircularBuffer(128);
         _bufferFiltered = new CircularBuffer(128);
+        _plot = plot;
+
+        // Configure our plot accordingly
+        for (XYSeries series : _plot.getSeriesSet()) {
+            if ("Zero Crossings".equals(series.getTitle())) {
+                _seriesZC = (SimpleXYSeries)series;
+            }
+            else if ("ZC Mean".equals(series.getTitle())) {
+                _seriesZCMean = (SimpleXYSeries)series;
+            }
+        }
+        if (_seriesZC == null) {
+            _seriesZC = new SimpleXYSeries("Zero Crossings");
+            _seriesZC.useImplicitXVals();
+            _plot.addSeries(_seriesZC, new LineAndPointFormatter(Color.BLUE, Color.BLACK, null, null));
+        }
+        if (_seriesZCMean == null) {
+            _seriesZCMean = new SimpleXYSeries("ZC Mean");
+            _plot.addSeries(_seriesZCMean, new LineAndPointFormatter(Color.BLACK, Color.BLACK, null, null));
+        }
     }
 
     public void newCameraAverage(float red) {
@@ -28,6 +57,13 @@ public class HeartRateMonitor {
             }
             Arrays.sort(values);
             _bufferFiltered.add(values[FILTER_NEIGHBORS]);
+
+            // Update Series-ZC
+            if (_bufferFiltered.size() == _seriesZC.size()) {
+                _seriesZC.removeFirst();
+            }
+            _seriesZC.addLast(null, values[FILTER_NEIGHBORS]);
+            _plot.redraw();
         }
     }
 
@@ -41,6 +77,14 @@ public class HeartRateMonitor {
                 mean += _bufferFiltered.getValue(i);
             }
             mean /= _bufferFiltered.size();
+            if (_seriesZCMean.size() != 2) {
+                _seriesZCMean.addFirst(0, mean);
+                _seriesZCMean.addFirst(127, mean);
+            }
+            else {
+                _seriesZCMean.setXY(0, mean, 0);
+                _seriesZCMean.setXY(127, mean, 1);
+            }
 
             // Count up zero-crossings
             int crossings = 0;

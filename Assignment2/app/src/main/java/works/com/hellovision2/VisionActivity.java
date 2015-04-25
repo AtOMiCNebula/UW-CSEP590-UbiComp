@@ -14,6 +14,8 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.androidplot.xy.XYPlot;
+
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
@@ -30,6 +32,7 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
     private HeartRateMonitor _monitor = null;
     private FFTHandler _handler = null;
     private boolean _recording = false;
+    private XYPlot _graph = null;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -61,7 +64,7 @@ public class VisionActivity extends ActionBarActivity implements CameraBridgeVie
         mOpenCvCameraView.setCvCameraViewListener(this);
 
         if (_monitor == null) {
-            _monitor = new HeartRateMonitor();
+            _monitor = new HeartRateMonitor((XYPlot)findViewById(R.id.xyPlot));
             _handler = new FFTHandler(this);
         }
 
