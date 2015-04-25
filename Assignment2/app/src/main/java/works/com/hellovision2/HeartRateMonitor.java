@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.util.Pair;
 
 import com.androidplot.xy.BarFormatter;
+import com.androidplot.xy.BoundaryMode;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
 import com.androidplot.xy.XYPlot;
@@ -43,17 +44,24 @@ public class HeartRateMonitor {
         if (_seriesFiltered == null) {
             _seriesFiltered = new SimpleXYSeries("Camera Data");
             _seriesFiltered.useImplicitXVals();
+            for (int i = 0; i < _bufferFiltered.capacity(); i++) {
+                _seriesFiltered.addLast(null, null);
+            }
             _plot.addSeries(_seriesFiltered, new LineAndPointFormatter(Color.BLACK, Color.BLUE, null, null));
         }
         if (_seriesPeaks == null) {
             _seriesPeaks = new SimpleXYSeries("Peaks");
             _seriesPeaks.useImplicitXVals();
+            for (int i = 0; i < _bufferFiltered.capacity(); i++) {
+                _seriesPeaks.addLast(null, null);
+            }
             _plot.addSeries(_seriesPeaks, new LineAndPointFormatter(null, Color.YELLOW, null, null));
         }
         if (_seriesFFT == null) {
             _seriesFFT = new SimpleXYSeries("FFT");
             //_plot.addSeries(_seriesFFT, new BarFormatter(Color.GREEN, Color.BLACK));
         }
+        _plot.setDomainBoundaries(0, 127, BoundaryMode.FIXED);
     }
 
     public void newCameraAverage(float red) {
@@ -68,11 +76,9 @@ public class HeartRateMonitor {
             _bufferFiltered.add(values[FILTER_NEIGHBORS]);
 
             // Update graph data
-            if (_bufferFiltered.size() == _seriesFiltered.size()) {
-                _seriesFiltered.removeFirst();
-                _seriesPeaks.removeFirst();
-            }
+            _seriesFiltered.removeFirst();
             _seriesFiltered.addLast(null, values[FILTER_NEIGHBORS]);
+            _seriesPeaks.removeFirst();
             _seriesPeaks.addLast(null, null);
             if (_bufferFiltered.size() > 1 &&
                     (_bufferFiltered.getValue(0) < _bufferFiltered.getValue(1) &&
