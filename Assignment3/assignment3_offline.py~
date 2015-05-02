@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+# Import numerical processing libraries
+from numpy import *
+from scipy import *
+from pylab import *
+import sys
+
+
+def decode_packets(data, sample_offset=0):
+	# Threshold data (force-convert to int so that we can get negative numbers, rather than bool as is default)
+	threshold = 0.5*max(data)
+	data = int32(data > threshold)
+
+	# Find rising and falling edges in thresholded data
+	rising_edge_idxs = find(diff(data) > 0)
+	falling_edge_idxs = find(diff(data) < 0)
+
+	# Ensure we have only complete pairs of rising and falling edges
+	if falling_edge_idxs[0] < rising_edge_idxs[0]:
+		falling_edge_idxs = falling_edge_idxs[1:]
+
+	if rising_edge_idxs[-1] > falling_edge_idxs[-1]:
+		rising_edge_idxs = rising_edge_idxs[:-1]
+
+	num_edges = min(len(rising_edge_idxs), len(falling_edge_idxs))
+	rising_edge_idxs = rising_edge_idxs[:num_edges]
+	falling_edge_idxs = falling_edge_idxs[:num_edges]
+
+	# Find widths of all pulses:
+	widths = falling_edge_idxs - rising_edge_idxs
+
+	# Anything with a width over 700 is a 1, otherwise it's a 0.  Once again, converting to int instead of bool
+	bits = int32(widths > 700)
+
+	# Find a preamble, then print out 24 bits minus the preamble
+	PACKET_LEN = 24
+	MAX_PACKET_TIME = 2000*PACKET_LEN
+	preamble = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+
+	idx = 0
+	last_packet_end = 0
+	# Run through the signal, sample by sample
+	while idx < len(bits) - PACKET_LEN:
+		# Find places where the bits equal the preamble, and the bits themselves are close enough to be from the same "packet"
+		if all(bits[idx:idx+len(preamble)] == preamble) and falling_edge_idxs[idx+PACKET_LEN] - rising_edge_idxs[idx] < MAX_PACKET_TIME:
+			print "Found preamble at sample %d, printing payload bits:"%(sample_offset + rising_edge_idxs[idx])
+			last_packet_end = rising_edge_idxs[idx] + MAX_PACKET_TIME/2
+
+			# Extract the payload
+			payload = bits[idx+len(preamble):idx+PACKET_LEN]
+			print payload
+
+			# Recognize certain buttons from their payloads
+			if all(payload == [1, 1, 0, 0, 0, 0, 0, 0]):
+				print " [BUTTON D]"
+			elif all(payload == [0, 0, 1, 1, 0, 0, 0, 0]):
+				print " [BUTTON C]"
+			elif all(payload == [0, 0, 0, 0, 1, 1, 0, 0]):
+				print " [BUTTON B]"
+			elif all(payload == [0, 0, 0, 0, 0, 0, 1, 1]):
+				print " [BUTTON A]"
+
+			idx += PACKET_LEN
+		else:
+			idx += 1
+
+	# If we've actually found a full packet in this signal, this value will be the offset of the current buffer that the last packet ended at.
+	return last_packet_end
+
+
+if __name__ == "__main__":
+	# Load in data in float32 format
+	data = fromfile("output.float32", float32)
+	print "Decoding %d samples"%(len(data))
+
+	decode_packets(data)
