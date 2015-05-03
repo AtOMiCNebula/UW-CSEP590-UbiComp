@@ -9,7 +9,8 @@ print "Running forever: mash CTRL-C in the terminal to quit"
 # Constants
 fs = 2e6    # Assume we're running at 2M samples/sec
 skipRate = 100    # Only consider every 100th sample
-thresh_packet = 0.002    # min time separation between packets
+limit_bit = 0.002    # time separation between bits
+limit_packet = 0.25    # time separation between packets
 thresh_bitHeight = 0.1    # height a signal needs to be considered
 thresh_widthOne = 600    # samples needed to count as 1 (vs. 0)
 
@@ -29,7 +30,7 @@ def parse_packets(data):
 				# Sample just crossed below the threshold
 				one = (thresh_widthOne/skipRate) < (i - idx_bitStart)
 				packet.append(one)
-				packet_countdown = thresh_packet*fs/skipRate
+				packet_countdown = limit_bit*fs/skipRate
 				idx_bitStart = None
 
 			# If the packet has gotten too stale, it's done
@@ -67,7 +68,41 @@ def decode_buttons(packets):
 				button = "D"
 
 		if button is not None:
-			result.append({ 'idx': packet['idx'], 'button': button})
+			result.append({ 'idx': packet['idx'], 'button': button })
+
+	return result
+
+def analyze_buttons(buttons):
+	result = []
+
+	def stale_idx(idx):
+		return idx + limit_packet*fs/skipRate
+
+	last_button = None
+	last_idx = None
+	for button in buttons:
+		# Send buttonup if the button changed (must have been quick!),
+		# or if we timed out
+		depress = False
+		if last_button and last_button is not button['button']:
+			depress = True
+		elif last_idx and stale_idx(last_idx) < button['idx']:
+			depress = True
+		if depress:
+			result.append({ 'button': last_button, 'pressed': False, 'idx': min(button['idx'], stale_idx(last_idx)) })
+			last_button = None
+			last_idx = None
+
+		# Send buttondown, if we haven't already!
+		if last_button is not button['button']:
+			last_button = button['button']
+			last_idx = button['idx']
+			result.append({ 'button': last_button, 'pressed': True, 'idx': last_idx })
+
+	# Send buttonup if we timed out with no subsequent button!
+	idx_end = fs/skipRate
+	if last_idx and stale_idx(last_idx) < idx_end:
+		result.append({ 'button': last_button, 'pressed': False, 'idx': stale_idx(last_idx) })
 
 	return result
 
@@ -88,7 +123,8 @@ while True:
 
 		packets = parse_packets(data[start_idx:read_idx:skipRate])
 		buttons = decode_buttons(packets)
-		print buttons
+		state_changes = analyze_buttons(buttons)
+		print state_changes
 	else:
 		# Sleep for 100ms after releasing our data handle
 		data = None
