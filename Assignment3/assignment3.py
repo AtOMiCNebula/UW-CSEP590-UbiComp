@@ -42,6 +42,35 @@ def parse_packets(data):
 
 	return packets
 
+packet_preamble = [ False, True, False, True, False, True, False, True,
+                    False, True, False, True, False, True, False, True ]
+packet_dataA = [ False, False, False, False, False, False, True, True ]
+packet_dataB = [ False, False, False, False, True, True, False, False ]
+packet_dataC = [ False, False, True, True, False, False, False, False ]
+packet_dataD = [ True, True, False, False, False, False, False, False ]
+
+def decode_buttons(packets):
+	result = []
+
+	for packet in packets:
+		button = None
+		preamble = packet['data'][:len(packet_preamble)]
+		if preamble == packet_preamble:
+			data = packet['data'][len(packet_preamble):][:len(packet_dataA)]
+			if data == packet_dataA:
+				button = "A"
+			elif data == packet_dataB:
+				button = "B"
+			elif data == packet_dataC:
+				button = "C"
+			elif data == packet_dataD:
+				button = "D"
+
+		if button is not None:
+			result.append({ 'idx': packet['idx'], 'button': button})
+
+	return result
+
 # Keep track of the last sample we read in
 read_idx = 0
 while True:
@@ -58,7 +87,8 @@ while True:
 		t = arange(start_idx, read_idx)/fs
 
 		packets = parse_packets(data[start_idx:read_idx:skipRate])
-		print packets
+		buttons = decode_buttons(packets)
+		print buttons
 	else:
 		# Sleep for 100ms after releasing our data handle
 		data = None
