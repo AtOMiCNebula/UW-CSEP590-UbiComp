@@ -14,6 +14,17 @@ limit_packet = 0.25    # time separation between packets
 thresh_bitHeight = 0.1    # height a signal needs to be considered
 thresh_widthOne = 600    # samples needed to count as 1 (vs. 0)
 
+# Data Segments
+# Typical format: PREAMBLE + DATA + 0
+# Note: pattern may abruptly cut off, either because of window cutoff, or
+#       transmission end (the unit does not guarantee complete patterns)
+packet_preamble = [ False, True, False, True, False, True, False, True,
+                    False, True, False, True, False, True, False, True ]
+packet_dataA = [ False, False, False, False, False, False, True, True ]
+packet_dataB = [ False, False, False, False, True, True, False, False ]
+packet_dataC = [ False, False, True, True, False, False, False, False ]
+packet_dataD = [ True, True, False, False, False, False, False, False ]
+
 def parse_packets(data):
 	packets = []
 
@@ -43,13 +54,6 @@ def parse_packets(data):
 
 	return packets
 
-packet_preamble = [ False, True, False, True, False, True, False, True,
-                    False, True, False, True, False, True, False, True ]
-packet_dataA = [ False, False, False, False, False, False, True, True ]
-packet_dataB = [ False, False, False, False, True, True, False, False ]
-packet_dataC = [ False, False, True, True, False, False, False, False ]
-packet_dataD = [ True, True, False, False, False, False, False, False ]
-
 def decode_buttons(packets):
 	result = []
 
@@ -59,13 +63,13 @@ def decode_buttons(packets):
 		if preamble == packet_preamble:
 			data = packet['data'][len(packet_preamble):][:len(packet_dataA)]
 			if data == packet_dataA:
-				button = "A"
+				button = 'A'
 			elif data == packet_dataB:
-				button = "B"
+				button = 'B'
 			elif data == packet_dataC:
-				button = "C"
+				button = 'C'
 			elif data == packet_dataD:
-				button = "D"
+				button = 'D'
 
 		if button is not None:
 			result.append({ 'idx': packet['idx'], 'button': button })
