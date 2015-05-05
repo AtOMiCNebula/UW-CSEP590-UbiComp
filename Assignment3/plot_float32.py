@@ -9,8 +9,8 @@ from pylab import *
 data = fromfile("output.float32", float32)
 print "Loaded %d samples"%(len(data))
 
-# Assume we're running at 2M samples/sec
-fs = 2e6
+# Assume we're running at 1M samples/sec
+fs = 1e6
 t = arange(len(data))/fs
 
 # Display the data to the user

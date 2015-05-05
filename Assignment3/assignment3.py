@@ -7,10 +7,10 @@ import time
 print "Running forever: mash CTRL-C in the terminal to quit"
 
 # Constants
-fs = 2e6    # Assume we're running at 2M samples/sec
+fs = 1e6    # Assume we're running at 1M samples/sec
 skipRate = 100    # Only consider every 100th sample
 limit_bit = 0.002    # time separation between bits
-limit_packet = 0.25    # time separation between packets
+limit_packet = 0.06    # time separation between packets
 thresh_bitHeight = 0.1    # height a signal needs to be considered
 thresh_widthOne = 600    # samples needed to count as 1 (vs. 0)
 
@@ -98,9 +98,9 @@ def analyze_buttons(buttons):
 			last_idx = None
 
 		# Send buttondown, if we haven't already!
+		last_idx = button['idx']
 		if last_button is not button['button']:
 			last_button = button['button']
-			last_idx = button['idx']
 			result.append({ 'button': last_button, 'pressed': True, 'idx': last_idx })
 
 	# Send buttonup if we timed out with no subsequent button!
@@ -118,12 +118,8 @@ while True:
 
 	# If we have more than a quarter of a second of new data, process it!
 	if len(data) - read_idx > fs/4:
-		# We will plot the last second of data every 1/4 second
+		start_idx = read_idx
 		read_idx += fs/4
-
-		# Be mindful of edge conditions; we don't necessarily have a full second of data
-		start_idx = max(read_idx - fs, 0)
-		t = arange(start_idx, read_idx)/fs
 
 		packets = parse_packets(data[start_idx:read_idx:skipRate])
 		buttons = decode_buttons(packets)

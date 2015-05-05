@@ -16,8 +16,8 @@ while True:
 	# mmap data so we don't have to hold the whole thing in memory
 	data = memmap("output.float32", dtype=float32)
 
-	# Assume we're running at 2M samples/sec
-	fs = 2e6
+	# Assume we're running at 1M samples/sec
+	fs = 1e6
 
 	# If we have more than a quarter of a second of new data, plot it!
 	if len(data) - read_idx > fs/4:
