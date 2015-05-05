@@ -11,7 +11,7 @@ print "Running forever: mash CTRL-C in the terminal to quit"
 fs = 1e6    # Assume we're running at 1M samples/sec
 skipRate = 100    # Only consider every 100th sample
 limit_bit = 0.002    # time separation between bits
-limit_packet = 0.06    # time separation between packets
+limit_packet = 0.12    # time separation between packets
 thresh_bitHeight = 0.1    # height a signal needs to be considered
 thresh_widthOne = 600    # samples needed to count as 1 (vs. 0)
 
@@ -154,6 +154,13 @@ while True:
 		for change in state_changes:
 			print_button(start_idx/skipRate+change['idx'], change['button'], change['pressed'])
 			last_button = change if change['pressed'] else None
+
+		# We're about to get a new window.  At this point, if we have a
+		# last_button, we need to carry it over.  Set its idx to be the
+		# maximum index value, so that we can continue it properly for
+		# the next window.
+		if last_button:
+			last_button['idx'] = (read_idx-start_idx)/skipRate
 
 	else:
 		# Sleep for 100ms after releasing our data handle

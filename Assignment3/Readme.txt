@@ -44,6 +44,25 @@ I'm really pleased with how this assignment turned out!  I've never had a
 chance to play with a SDR unit before, and it was really interesting.  Now that
 they're so cheap, I might have to buy one for myself for further research. :)
 
+One thing I'm not quite pleased about...due to my design of step 3 and 4 being
+separate, and not applying the filtering all at once, it forces a trade-off
+between being able to identify rapid-fire presses, and very long holds.
+Long holds can span more than one 0.25s window, for instance, and because
+impulses are already filtered out by the time we get to step 4, we don't know
+when the "last" one was, beyond somewhere within the last limit_packet portion
+of the window.  Additionally, I had previously removed the code that had us
+reprocess the same data mutliple times (i.e. processing 1 second worth of data,
+with a sliding window of 0.25s), as it was more difficult than I expected to
+correlate the same events in each window.  But then, that means we may chop off
+part of a signal, so limit_packet had to be doubled, which makes it harder to
+observe rapid-fire patterns...
+
+That said, I'm okay submitting with this limitation, since it was already
+beyond what was asked for the assignment.  So, take the results with that grain
+of salt.  If you want to see a version of this change that works great with
+rapid-fire button presses, step back one commit before this one in my GitHub
+repository... O:-)
+
 assignment3.py:
 	parse_packets: step #1 above
 	decode_buttons: step #2 above
