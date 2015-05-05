@@ -104,7 +104,7 @@ def analyze_buttons(buttons):
 			result.append({ 'button': last_button, 'pressed': True, 'idx': last_idx })
 
 	# Send buttonup if we timed out with no subsequent button!
-	idx_end = fs/skipRate
+	idx_end = fs/4/skipRate
 	if last_idx and stale_idx(last_idx) < idx_end:
 		result.append({ 'button': last_button, 'pressed': False, 'idx': stale_idx(last_idx) })
 
