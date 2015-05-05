@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Import python numerical processing libraries
+from datetime import datetime,timedelta
 from numpy import *
 import time
 
@@ -76,11 +77,11 @@ def decode_buttons(packets):
 
 	return result
 
+def stale_idx(idx):
+	return idx + limit_packet*fs/skipRate
+
 def analyze_buttons(buttons):
 	result = []
-
-	def stale_idx(idx):
-		return idx + limit_packet*fs/skipRate
 
 	last_button = None
 	last_idx = None
@@ -110,7 +111,13 @@ def analyze_buttons(buttons):
 
 	return result
 
+dump_startTime = datetime.now()
+def print_button(idx, button, buttondown):
+	t = dump_startTime + timedelta(milliseconds=idx/10)
+	print "%s: Button %s %s" % (t, button, ("Pressed" if buttondown else "Released"))
+
 # Keep track of the last sample we read in
+last_button = None
 read_idx = 0
 while True:
 	# mmap data so we don't have to hold the whole thing in memory
@@ -124,7 +131,30 @@ while True:
 		packets = parse_packets(data[start_idx:read_idx:skipRate])
 		buttons = decode_buttons(packets)
 		state_changes = analyze_buttons(buttons)
-		print state_changes
+
+		if last_button is not None and len(state_changes) == 0:
+			# We should have seen a buttondown!  Timing must have been lucky.
+			print_button(start_idx/skipRate, last_button['button'], False)
+			last_button = None
+			continue
+
+		if last_button and state_changes[0]['button'] == last_button['button']:
+			# The first button hit this time was the same as the last button
+			# we saw hit.  Were they within a close enough range that we
+			# consider them part of the same press?
+			if stale_idx(last_button['idx']) < (state_changes[0]['idx']+(read_idx-start_idx)/skipRate):
+				# Too slow!  We're just seeing rapid presses.
+				print_button(start_idx/skipRate, last_button['button'], False)
+				last_button = None
+			else:
+				# Looks like a long hold!  Drop it from our list.
+				state_changes = state_changes[1:]
+
+		# Now that we've initially filtered the results, display the rest
+		for change in state_changes:
+			print_button(start_idx/skipRate+change['idx'], change['button'], change['pressed'])
+			last_button = change if change['pressed'] else None
+
 	else:
 		# Sleep for 100ms after releasing our data handle
 		data = None
