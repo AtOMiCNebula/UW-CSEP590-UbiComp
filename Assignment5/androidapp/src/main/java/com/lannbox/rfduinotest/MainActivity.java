@@ -14,14 +14,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-import android.view.KeyEvent;
-import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
-import java.util.UUID;
 //Test
 public class MainActivity extends Activity implements BluetoothAdapter.LeScanCallback {
     // State machine
@@ -40,19 +33,6 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
 
     private RFduinoService rfduinoService;
     private ServiceConnection rfduinoServiceConnection;
-
-    private Button enableBluetoothButton;
-    private TextView scanStatusText;
-    private Button scanButton;
-    private TextView deviceInfoText;
-    private TextView connectionStatusText;
-    private Button connectButton;
-    private Button disconnectButton;
-    private EditData valueEdit;
-    private Button sendZeroButton;
-    private Button sendValueButton;
-    private Button clearButton;
-    private LinearLayout dataLayout;
 
     private RetainedFragment dataFragment;
     private boolean serviceBound;
@@ -91,7 +71,6 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             } else if (RFduinoService.ACTION_DISCONNECTED.equals(action)) {
                 downgradeState(STATE_DISCONNECTED);
             } else if (RFduinoService.ACTION_DATA_AVAILABLE.equals(action)) {
-                addData(intent.getByteArrayExtra(RFduinoService.EXTRA_DATA));
             }
         }
     };
@@ -192,115 +171,17 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             getApplicationContext().bindService(rfduinoIntent, rfduinoServiceConnection, BIND_AUTO_CREATE);
         }
 
-        // Bluetooth
-        enableBluetoothButton = (Button) findViewById(R.id.enableBluetooth);
-        enableBluetoothButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                enableBluetoothButton.setEnabled(false);
-                enableBluetoothButton.setText(
-                        bluetoothAdapter.enable() ? "Enabling bluetooth..." : "Enable failed!");
-            }
-        });
-
         // Find Device
-        scanStatusText = (TextView) findViewById(R.id.scanStatus);
-
-        scanButton = (Button) findViewById(R.id.scan);
-        scanButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                scanStarted = true;
-                bluetoothAdapter.startLeScan(
-                        new UUID[]{ RFduinoService.UUID_SERVICE },
-                        MainActivity.this);
-            }
-        });
 
         // Device Info
-        deviceInfoText = (TextView) findViewById(R.id.deviceInfo);
 
         // Connect Device
-        connectionStatusText = (TextView) findViewById(R.id.connectionStatus);
-
-        connectButton = (Button) findViewById(R.id.connect);
-        connectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                v.setEnabled(false);
-                connectionStatusText.setText("Connecting...");
-                // if device was rotated we need to set up a new service connection with this activity
-                if (connectionIsOld) {
-                    Log.w("Main", "Rebuilding connection after rotation");
-                    connectionIsOld = false;
-                    rfduinoServiceConnection = genServiceConnection();
-                }
-                if (serviceBound) {
-                    if (rfduinoService.initialize()) {
-                        if (rfduinoService.connect(bluetoothDevice.getAddress())) {
-                            upgradeState(STATE_CONNECTING);
-                        }
-                    }
-                } else {
-                    Intent rfduinoIntent = new Intent(getApplicationContext(), RFduinoService.class);
-                    getApplicationContext().bindService(rfduinoIntent, rfduinoServiceConnection, BIND_AUTO_CREATE);
-                }
-            }
-        });
 
         // Disconnect Device
-        disconnectButton = (Button) findViewById(R.id.disconnect);
-        disconnectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                v.setEnabled(false);
-
-                disconnect();
-            }
-        });
 
         // Send
-        valueEdit = (EditData) findViewById(R.id.value);
-        valueEdit.setImeOptions(EditorInfo.IME_ACTION_SEND);
-        valueEdit.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEND) {
-                    sendValueButton.callOnClick();
-                    return true;
-                }
-                return false;
-            }
-        });
-
-        sendZeroButton = (Button) findViewById(R.id.sendZero);
-        sendZeroButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.w("Main","Send to " + rfduinoService.toString());
-                rfduinoService.send(new byte[]{0});
-            }
-        });
-
-        sendValueButton = (Button) findViewById(R.id.sendValue);
-        sendValueButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.w("Main","Send to " + rfduinoService.toString());
-                rfduinoService.send(valueEdit.getData());
-            }
-        });
 
         // Receive
-        clearButton = (Button) findViewById(R.id.clearData);
-        clearButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dataLayout.removeAllViews();
-            }
-        });
-
-        dataLayout = (LinearLayout) findViewById(R.id.dataLayout);
 
         // refresh the ui if a restored fragment was found
         if (dataFragment != null) {
@@ -431,23 +312,6 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
     private void updateUi() {
         // Enable Bluetooth
         boolean on = state > STATE_BLUETOOTH_OFF;
-        enableBluetoothButton.setEnabled(!on);
-        enableBluetoothButton.setText(on ? "Bluetooth enabled" : "Enable Bluetooth");
-        scanButton.setEnabled(on);
-
-        // Scan
-        if (scanStarted && scanning) {
-            scanStatusText.setText("Scanning...");
-            scanButton.setText("Stop Scan");
-            scanButton.setEnabled(true);
-        } else if (scanStarted) {
-            scanStatusText.setText("Scan started...");
-            scanButton.setEnabled(false);
-        } else {
-            scanStatusText.setText("");
-            scanButton.setText("Scan");
-            scanButton.setEnabled(true);
-        }
 
         // Connect
         boolean connected = false;
@@ -458,31 +322,10 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             connected = true;
             connectionText = "Connected";
         }
-        connectionStatusText.setText(connectionText);
-        connectButton.setEnabled(bluetoothDevice != null && state == STATE_DISCONNECTED);
-        disconnectButton.setEnabled(bluetoothDevice != null && state == STATE_CONNECTED);
 
         // Send
-        sendZeroButton.setEnabled(connected);
-        sendValueButton.setEnabled(connected);
 
         Log.w("Main","Updated UI to state " + state);
-    }
-
-    private void addData(byte[] data) {
-        View view = getLayoutInflater().inflate(android.R.layout.simple_list_item_2, dataLayout, false);
-
-        TextView text1 = (TextView) view.findViewById(android.R.id.text1);
-        text1.setText(HexAsciiHelper.bytesToHex(data));
-
-        String ascii = HexAsciiHelper.bytesToAsciiMaybe(data);
-        if (ascii != null) {
-            TextView text2 = (TextView) view.findViewById(android.R.id.text2);
-            text2.setText(ascii);
-        }
-
-        dataLayout.addView(
-                view, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     @Override
@@ -494,8 +337,6 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
         MainActivity.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                deviceInfoText.setText(
-                        BluetoothHelper.getDeviceInfoText(bluetoothDevice, rssi, scanRecord));
                 updateUi();
             }
         });
