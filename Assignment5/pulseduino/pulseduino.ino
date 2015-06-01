@@ -5,18 +5,30 @@
 #include <RFduinoBLE.h>
 
 // Config
-int pin = 2; // heart rate data line on GPIO 2
-int waitMillis = 1000 / 15; // ~15fps, just like the Android A2 camera
+const int pin = 2; // heart rate data line on GPIO 2
+const int waitSensor = 1000 / 15; // ~15fps for sensor readings, just like the Android A2 camera
+const int waitBTLE = 1000 / 2; // ~2fps for message delivery
 const int rawValuesCount = 5*2+1;
+const int beatsCount = 5; // number of beats to send per packet (max 20 bytes?)
 
 // Globals
-int lastTime = 0;
+int lastSensor = 0;
+int lastBTLE = 0;
 int lastMedian = -1;
 boolean rawValuesFilled = false;
 int rawValuesNext = 0;
 int rawValues[rawValuesCount];
+int beats[beatsCount];
 
 void setup() {
+  // Initialize arrays
+  for (int i = 0; i < rawValuesCount; i++) {
+    rawValues[i] = 0;
+  }
+  for (int i = 0; i < beatsCount; i++) {
+    beats[i] = 0;
+  }
+  
   // Setup RFduinoBLE
   RFduinoBLE.deviceName = "UWCSEP590-A5";
   RFduinoBLE.advertisementData = "jdw";
@@ -31,8 +43,10 @@ void setup() {
 
 void loop() {
   int time = millis();
-  if ((lastTime + waitMillis) < time) {
-    lastTime = time;
+  
+  // Is it time for a new sensor reading?
+  if ((lastSensor + waitSensor) < time) {
+    lastSensor = time;
     
     int reading = analogRead(pin);
     
@@ -50,17 +64,26 @@ void loop() {
       
       // Look for peaks
       if (lastMedian != -1 && lastMedian > median) {
-        // Found a peak!  Tell everyone!
-        Serial.print("Found a peak: ");
-        Serial.println(time);
-        //RFduinoBLE.send(time);
+        // Found a peak!  Update the list!
+        for (int i = 1; i < beatsCount; i++) {
+          beats[i-1] = beats[i];
+        }
+        beats[beatsCount-1] = time;
       }
       lastMedian = median;
     }
   }
-  else {
-    // We've not waited long enough yet, let's take a nap
-    int waitFor = (lastTime + waitMillis) - time;
+  
+  // Is it time to deliver a new packet?
+  if ((lastBTLE + waitBTLE) < time) {
+    lastBTLE = time;
+    
+    RFduinoBLE.send((char*)beats, sizeof(beats));
+  }
+  
+  // Done for now, wait until we have more work to do
+  int waitFor = min((lastSensor + waitSensor), (lastBTLE + waitBTLE)) - millis();
+  if (waitFor > 0) {
     RFduino_ULPDelay(waitFor);
   }
 }
