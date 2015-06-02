@@ -1,12 +1,15 @@
 package com.lannbox.rfduinotest;
 
 import android.graphics.Color;
+import android.util.Log;
 
 import com.androidplot.xy.BoundaryMode;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
 import com.androidplot.xy.XYPlot;
 import com.androidplot.xy.XYSeries;
+
+import java.nio.IntBuffer;
 
 
 public class HeartRateMonitor {
@@ -31,16 +34,17 @@ public class HeartRateMonitor {
         _plot.setRangeBoundaries(0, 2, BoundaryMode.FIXED);
     }
 
-    public void newBeatData(int[] data) {
-        boolean foundNew = (_lastTime == 0);
-        for (int dataValue : data) {
+    public void newBeatData(IntBuffer data, int num) {
+        boolean foundNew = (_lastTime == 0 || _lastTime < data.get(0));
+        for (int i = 0; i < num; i++) {
             if (foundNew) {
-                _seriesPeaks.addLast(dataValue, 1);
-                _lastTime = dataValue;
+                _seriesPeaks.addLast(data.get(i), 1);
+                _lastTime = data.get(i);
             }
-            else if (dataValue == _lastTime) {
+            else if (data.get(i) == _lastTime) {
                 foundNew = true;
             }
+            Log.w("BeatData", String.format("%d - %s(%d)", data.get(i), Boolean.toString(foundNew), _lastTime));
         }
 
         if (foundNew) {
@@ -67,7 +71,7 @@ public class HeartRateMonitor {
         double peaksVal = -1;
         if (peaks > 2) {
             double min = _seriesPeaks.getX(0).doubleValue(); // use double here for division below
-            double max = _seriesPeaks.getX(_seriesPeaks.size()).doubleValue();
+            double max = _seriesPeaks.getX(_seriesPeaks.size()-1).doubleValue();
             peaksVal = (peaks * (60000 / (max - min)));
         }
 

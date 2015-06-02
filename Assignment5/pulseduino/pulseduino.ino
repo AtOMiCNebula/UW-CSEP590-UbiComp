@@ -8,13 +8,16 @@
 const int pin = 2; // heart rate data line on GPIO 2
 const int waitSensor = 1000 / 15; // ~15fps for sensor readings, just like the Android A2 camera
 const int waitBTLE = 1000 / 2; // ~2fps for message delivery
-const int rawValuesCount = 5*2+1;
+const int waitBeat = 1000 / 5; // wait 200ms between beats (hope nobody goes above 300bpm, lol)
+const int rawValuesCount = 7;
 const int beatsCount = 5; // number of beats to send per packet (max 20 bytes?)
 
 // Globals
 int lastSensor = 0;
 int lastBTLE = 0;
-int lastMedian = -1;
+int lastMedian1 = -1;
+int lastMedian2 = -1;
+int lastBeat = -1;
 boolean rawValuesFilled = false;
 int rawValuesNext = 0;
 int rawValues[rawValuesCount];
@@ -49,6 +52,9 @@ void loop() {
     lastSensor = time;
     
     int reading = analogRead(pin);
+    Serial.print(time);
+    Serial.print(": reading ");
+    Serial.println(reading);
     
     // Add reading to raw data set
     rawValues[rawValuesNext] = reading;
@@ -63,14 +69,26 @@ void loop() {
       int median = getMedian();
       
       // Look for peaks
-      if (lastMedian != -1 && lastMedian > median) {
+      if (((lastBeat + waitBeat) < time) && lastMedian2 != -1 &&
+            median < lastMedian1 && !(lastMedian1 < lastMedian2)) {
+        lastBeat = time;
+        
         // Found a peak!  Update the list!
         for (int i = 1; i < beatsCount; i++) {
           beats[i-1] = beats[i];
         }
         beats[beatsCount-1] = time;
+        
+        Serial.print(time);
+        Serial.print(": BEAT     median=");
+        Serial.print(median);
+        Serial.print(", lastMedian1=");
+        Serial.print(lastMedian1);
+        Serial.print(", lastMedian2=");
+        Serial.println(lastMedian2);
       }
-      lastMedian = median;
+      lastMedian2 = lastMedian1;
+      lastMedian1 = median;
     }
   }
   

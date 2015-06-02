@@ -181,7 +181,7 @@ public class RFduinoService extends Service {
             final Intent intent = new Intent(action);
             intent.putExtra(EXTRA_DATA, characteristic.getValue());
             sendBroadcast(intent, Manifest.permission.BLUETOOTH);
-            Log.w(TAG,"BTLE Data received and broadcasted");
+            //Log.w(TAG,"BTLE Data received and broadcasted");
 
             // Create notification
             Intent notificationIntent = new Intent(RFduinoService.this, MainActivity.class);

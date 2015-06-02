@@ -82,14 +82,14 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            Log.w("Main","rfduinoReceiver called with " + action);
+            //Log.w("Main","rfduinoReceiver called with " + action);
             if (RFduinoService.ACTION_CONNECTED.equals(action)) {
                 upgradeState(STATE_CONNECTED);
             } else if (RFduinoService.ACTION_DISCONNECTED.equals(action)) {
                 downgradeState(STATE_DISCONNECTED);
             } else if (RFduinoService.ACTION_DATA_AVAILABLE.equals(action)) {
                 byte[] rawData = intent.getByteArrayExtra(RFduinoService.EXTRA_DATA);
-                monitor.newBeatData(ByteBuffer.wrap(rawData).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().array());
+                monitor.newBeatData(ByteBuffer.wrap(rawData).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer(), 5);
                 lastPing = new Date();
             }
         }
@@ -322,17 +322,29 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             lastUpdate = "(connecting)";
         }
         else {
-            lastUpdate = String.format("%ds ago", TimeUnit.MILLISECONDS.toSeconds(new Date().getTime() - lastPing.getTime()));
+            if (lastPing != null) {
+                lastUpdate = String.format("%.3fs ago", (new Date().getTime() - lastPing.getTime()) / 1000.f);
+            }
+            else {
+                lastUpdate = "(no data)";
+            }
         }
-        textView.setText(String.format("Rate: %03d\nLast Update: %s", ((int)Math.round(monitor.getRate())), lastUpdate));
 
-        Log.w("Main", "Updated UI to state " + state);
+        int rate = (int) Math.round(monitor.getRate());
+        if (rate == -1) {
+            rate = 0;
+        }
+
+        textView.setText(String.format("Rate: %03d\nLast Update: %s", rate, lastUpdate));
+
+        //Log.w("Main", "Updated UI to state " + state);
         postUpdateUiInterval();
     }
 
     @Override
     public void onLeScan(BluetoothDevice device, final int rssi, final byte[] scanRecord) {
-        if (device.getName() != "UWCSEP590-A5" || !BluetoothHelper.parseScanRecord(scanRecord).contains("Advertisement Data: jdw")) {
+        Log.w("Main", String.format("onLeScan: name='%s', scanRecord='%s'", device.getName(), BluetoothHelper.parseScanRecord(scanRecord)));
+        if (!device.getName().equals("UWCSEP590-A5") || !BluetoothHelper.parseScanRecord(scanRecord).contains("\"jdw\"")) {
             return;
         }
         bluetoothAdapter.stopLeScan(this);
