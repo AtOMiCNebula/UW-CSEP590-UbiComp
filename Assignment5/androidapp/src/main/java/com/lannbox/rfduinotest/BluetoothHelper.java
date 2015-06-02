@@ -22,7 +22,7 @@ public class BluetoothHelper {
     }
 
     // Bluetooth Spec V4.0 - Vol 3, Part C, section 8
-    private static String parseScanRecord(byte[] scanRecord) {
+    public static String parseScanRecord(byte[] scanRecord) {
         StringBuilder output = new StringBuilder();
         int i = 0;
         while (i < scanRecord.length) {

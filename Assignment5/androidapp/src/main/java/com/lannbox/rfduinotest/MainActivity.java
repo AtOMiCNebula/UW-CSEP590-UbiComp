@@ -12,8 +12,20 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+
+import com.androidplot.xy.XYPlot;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Date;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 //Test
 public class MainActivity extends Activity implements BluetoothAdapter.LeScanCallback {
@@ -39,6 +51,11 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
     private boolean connectionIsOld = false;
     private boolean fromNotification = false;
     private boolean serviceInForeground = false;
+
+    private HeartRateMonitor monitor = null;
+    private TextView textView = null;
+    private Date lastPing = null;
+    private Handler intervalHandler;
 
     private final BroadcastReceiver bluetoothStateReceiver = new BroadcastReceiver() {
         @Override
@@ -71,37 +88,13 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             } else if (RFduinoService.ACTION_DISCONNECTED.equals(action)) {
                 downgradeState(STATE_DISCONNECTED);
             } else if (RFduinoService.ACTION_DATA_AVAILABLE.equals(action)) {
+                byte[] rawData = intent.getByteArrayExtra(RFduinoService.EXTRA_DATA);
+                monitor.newBeatData(ByteBuffer.wrap(rawData).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().array());
+                lastPing = new Date();
             }
         }
     };
-/*
-    final private static String DEVICE_FOUND = "com.rfduino.DEVICE_FOUND";
-    private final BroadcastReceiver handlerServiceReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            Log.w("Main","handlerServiceReceiver called with " + action);
-            if (DEVICE_FOUND.equals(action)) {
-                final int rssi = intent.getIntExtra("rssi", 0);
-                final byte[] scanRecord = intent.getByteArrayExtra("scanRecord");
-                bluetoothDevice = service.getDevice();
-                scanning = false;
 
-                MainActivity.this.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        deviceInfoText.setText(
-                                BluetoothHelper.getDeviceInfoText(bluetoothDevice, rssi, scanRecord));
-                        updateUi();
-                    }
-                });
-
-            } else if (false) {
-            } else if (false) {
-            }
-        }
-    };
-*/
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -171,17 +164,17 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
             getApplicationContext().bindService(rfduinoIntent, rfduinoServiceConnection, BIND_AUTO_CREATE);
         }
 
-        // Find Device
+        if (monitor == null) {
+            monitor = new HeartRateMonitor((XYPlot)findViewById(R.id.xyPlot));
+        }
+        textView = (TextView)findViewById(R.id.textView);
 
-        // Device Info
+        intervalHandler = new Handler();
+        postUpdateUiInterval();
 
-        // Connect Device
-
-        // Disconnect Device
-
-        // Send
-
-        // Receive
+        // Begin scanning!
+        scanStarted = true;
+        bluetoothAdapter.startLeScan(new UUID[]{RFduinoService.UUID_SERVICE}, MainActivity.this);
 
         // refresh the ui if a restored fragment was found
         if (dataFragment != null) {
@@ -189,10 +182,18 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
         }
     }
 
+    private void postUpdateUiInterval() {
+        intervalHandler.postDelayed(new Runnable() {
+            public void run() {
+                updateUi();
+            }
+        }, 1000);
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
-        Log.w("Main","onStart called");
+        Log.w("Main", "onStart called");
         registerReceiver(scanModeReceiver, new IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED));
         registerReceiver(bluetoothStateReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
         registerReceiver(rfduinoReceiver, RFduinoService.getIntentFilter());
@@ -310,26 +311,30 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
     }
 
     private void updateUi() {
-        // Enable Bluetooth
-        boolean on = state > STATE_BLUETOOTH_OFF;
-
-        // Connect
-        boolean connected = false;
-        String connectionText = "Disconnected";
-        if (state == STATE_CONNECTING) {
-            connectionText = "Connecting...";
-        } else if (state == STATE_CONNECTED) {
-            connected = true;
-            connectionText = "Connected";
+        String lastUpdate;
+        if (state == STATE_BLUETOOTH_OFF) {
+            lastUpdate = "(bluetooth off)";
         }
+        else if (state == STATE_DISCONNECTED) {
+            lastUpdate = "(disconnected)";
+        }
+        else if (state == STATE_CONNECTING) {
+            lastUpdate = "(connecting)";
+        }
+        else {
+            lastUpdate = String.format("%ds ago", TimeUnit.MILLISECONDS.toSeconds(new Date().getTime() - lastPing.getTime()));
+        }
+        textView.setText(String.format("Rate: %03d\nLast Update: %s", ((int)Math.round(monitor.getRate())), lastUpdate));
 
-        // Send
-
-        Log.w("Main","Updated UI to state " + state);
+        Log.w("Main", "Updated UI to state " + state);
+        postUpdateUiInterval();
     }
 
     @Override
     public void onLeScan(BluetoothDevice device, final int rssi, final byte[] scanRecord) {
+        if (device.getName() != "UWCSEP590-A5" || !BluetoothHelper.parseScanRecord(scanRecord).contains("Advertisement Data: jdw")) {
+            return;
+        }
         bluetoothAdapter.stopLeScan(this);
         bluetoothDevice = device;
         scanning = false;
@@ -337,6 +342,23 @@ public class MainActivity extends Activity implements BluetoothAdapter.LeScanCal
         MainActivity.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                // if device was rotated we need to set up a new service connection with this activity
+                if (connectionIsOld) {
+                    Log.w("Main", "Rebuilding connection after rotation");
+                    connectionIsOld = false;
+                    rfduinoServiceConnection = genServiceConnection();
+                }
+                if (serviceBound) {
+                    if (rfduinoService.initialize()) {
+                        if (rfduinoService.connect(bluetoothDevice.getAddress())) {
+                            upgradeState(STATE_CONNECTING);
+                        }
+                    }
+                } else {
+                    Intent rfduinoIntent = new Intent(getApplicationContext(), RFduinoService.class);
+                    getApplicationContext().bindService(rfduinoIntent, rfduinoServiceConnection, BIND_AUTO_CREATE);
+                }
+
                 updateUi();
             }
         });
